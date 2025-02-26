@@ -17,7 +17,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // variable to store the transcription result 
     let finalTranscript = '';
-    
 
     // Add a click event listener to the recordButton
     recordButton.addEventListener('click', function() {
@@ -30,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function startRecording() {
         transcriptionResult.innerHTML = '<p>Requesting access to your microphone...</p>';
-
+        finalTranscript = ''; // reset the final transcript
         try {
             // request access to the user's microphone 
             const stream = await navigator.mediaDevices.getUserMedia({
@@ -96,8 +95,22 @@ document.addEventListener('DOMContentLoaded', function() {
             recordButton.innerHTML = '<i class="bi bi-mic-fill"></i> Record Audio';
             recordButton.classList.replace('btn-danger', 'btn-primary');
             
+            // Call Gemini with the final transcript
+            if (finalTranscript) {
+                transcriptionResult.innerHTML += '<p>Sending to Gemini...</p>';
+                callGemini(finalTranscript).then(response => {
+                    transcriptionResult.innerHTML += `<div class="mt-3 p-3 bg-light rounded"><h5>Gemini Response:</h5><p>${response}</p></div>`;
+                    // Speak the response
+                    speakText(response);
+                });
+            }
         }
-        }
+    }
+
+    function speakText(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utterance);
+    }
 
     // Add an event listener for when the recognition result is available
     recognition.onresult = function(event) {
@@ -128,4 +141,23 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Speech recognition error detected:', event.error);
         transcriptionResult.innerHTML = '<p>Error occurred while recognizing speech. Please try again.</p>';
     };
+
+    async function callGemini(text) {
+        try {
+            const response = await fetch('/gemini', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ prompt: text })
+            });
+            const data = await response.json();
+            return data.response;
+        } catch (error) {
+            console.error('Error calling Gemini API:', error);
+            return 'Error getting response from Gemini';
+        }
+    }
+
+
 });
