@@ -100,9 +100,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 transcriptionResult.innerHTML += '<p>Sending to Gemini...</p>';
                 callGemini(finalTranscript).then(response => {
                     transcriptionResult.innerHTML += `<div class="mt-3 p-3 bg-light rounded"><h5>Gemini Response:</h5><p>${response}</p></div>`;
+                    // Speak the response
+                    speakText(response);
                 });
             }
         }
+    }
+
+    function speakText(text) {
+        const utterance = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(utterance);
     }
 
     // Add an event listener for when the recognition result is available
@@ -145,29 +152,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 body: JSON.stringify({ prompt: text })
             });
             const data = await response.json();
-            
-            // Create audio element for the TTS response
-            if (data.audio_path) {
-                const audio = document.createElement('audio');
-                audio.src = data.audio_path;
-                audio.controls = true;
-                audio.autoplay = true;
-                
-                // Add the audio element to the response
-                const geminiResponse = `<div class="mt-3 p-3 bg-light rounded">
-                    <h5>Gemini Response:</h5>
-                    <p>${data.response}</p>
-                    <div id="audio-player"></div>
-                </div>`;
-                
-                transcriptionResult.innerHTML += geminiResponse;
-                document.getElementById('audio-player').appendChild(audio);
-            } else {
-                transcriptionResult.innerHTML += `<div class="mt-3 p-3 bg-light rounded">
-                    <h5>Gemini Response:</h5>
-                    <p>${data.response}</p>
-                </div>`;
-            }
             return data.response;
         } catch (error) {
             console.error('Error calling Gemini API:', error);
