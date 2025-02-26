@@ -108,8 +108,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function speakText(text) {
-        const utterance = new SpeechSynthesisUtterance(text);
-        window.speechSynthesis.speak(utterance);
+        // const utterance = new SpeechSynthesisUtterance(text);
+        // window.speechSynthesis.speak(utterance);
+        speakWithElevenLabs(text);
     }
 
     // Add an event listener for when the recognition result is available
@@ -156,6 +157,28 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error calling Gemini API:', error);
             return 'Error getting response from Gemini';
+        }
+    }
+
+    async function speakWithElevenLabs(text) {
+        try {
+            const response = await fetch('/elevenlabs', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text: text })
+            });
+            
+            if (!response.ok) throw new Error('API call failed');
+            
+            const data = await response.json();
+            if (data.audio_url) {
+                const audio = new Audio(data.audio_url);
+                audio.play();
+            }
+        } catch (error) {
+            console.error('Eleven Labs API error:', error);
         }
     }
 
