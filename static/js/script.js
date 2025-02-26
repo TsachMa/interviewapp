@@ -6,6 +6,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let mediaRecorder = null;
     let audioChunks = [];
 
+    let pauseTimer = null;
+    let autoRestart = true;
+
+    const PAUSE_THRESHOLD = 2000; // 2 seconds of silence
+
     // Create a new SpeechRecognition instance
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SpeechRecognition(); 
@@ -21,11 +26,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add a click event listener to the recordButton
     recordButton.addEventListener('click', function() {
         if (!isRecording) {
+            autoRestart = true;
             startRecording();
         } else {
+            autoRestart = false; // Don't auto-restart on manual stop
             stopRecording();
         }
     });
+    
 
     async function startRecording() {
         transcriptionResult.innerHTML = '<p>Requesting access to your microphone...</p>';
@@ -95,14 +103,16 @@ document.addEventListener('DOMContentLoaded', function() {
             recordButton.innerHTML = '<i class="bi bi-mic-fill"></i> Record Audio';
             recordButton.classList.replace('btn-danger', 'btn-primary');
             
-            // Call Gemini with the final transcript
             if (finalTranscript) {
                 transcriptionResult.innerHTML += '<p>Sending to Gemini...</p>';
                 callGemini(finalTranscript).then(response => {
                     transcriptionResult.innerHTML += `<div class="mt-3 p-3 bg-light rounded"><h5>Gemini Response:</h5><p>${response}</p></div>`;
-                    // Speak the response
+                    finalTranscript = '';
+                    // Speaking will handle restarting recording when done
                     speakText(response);
                 });
+            } else if (autoRestart && !isSpeaking) {
+                setTimeout(startRecording, 500);
             }
         }
     }
@@ -114,33 +124,57 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Add an event listener for when the recognition result is available
+
+
+    // Modify the recognition.onresult function
     recognition.onresult = function(event) {
         let interimTranscript = '';
-
-        // loop through the results
+        
+        // Reset pause timer on new speech
+        clearTimeout(pauseTimer);
+        
+        // Loop through the results
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
-
-            // check if the result is final or interim
+            
             if (event.results[i].isFinal) {
                 finalTranscript += transcript;
+                
+                // Set timer to detect pause after speech ends
+                pauseTimer = setTimeout(() => {
+                    if (finalTranscript && isRecording) {
+                        stopRecording();
+                    }
+                }, PAUSE_THRESHOLD);
             } else {
                 interimTranscript += transcript;
             }
         }
-
-        // Display interim results as they come in
+        
+        // Display results
         if (isRecording) {
             transcriptionResult.innerHTML = '<p>Recording...</p>';
             transcriptionResult.innerHTML += '<p><i>Current: ' + interimTranscript + '</i></p>';
             transcriptionResult.innerHTML += '<p><b>Transcript so far:</b> ' + finalTranscript + '</p>';
         }
     };
-
     // Handle errors 
     recognition.onerror = function(event) {
         console.error('Speech recognition error detected:', event.error);
         transcriptionResult.innerHTML = '<p>Error occurred while recognizing speech. Please try again.</p>';
+    };
+    recognition.onend = function() {
+        // If recording is still supposed to be happening but recognition stopped
+        if (isRecording && autoRestart) {
+            // Try to restart recognition
+            setTimeout(() => {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Could not restart recognition:', e);
+                }
+            }, 500);
+        }
     };
 
     async function callGemini(text) {
@@ -160,8 +194,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    let isSpeaking = false;
+
+    // Modify the speakWithElevenLabs function
     async function speakWithElevenLabs(text) {
         try {
+            isSpeaking = true;
             const response = await fetch('/elevenlabs', {
                 method: 'POST',
                 headers: {
@@ -175,12 +213,20 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await response.json();
             if (data.audio_url) {
                 const audio = new Audio(data.audio_url);
+                audio.onended = function() {
+                    isSpeaking = false;
+                    // Only restart recording after speech ends if in auto mode
+                    if (autoRestart) {
+                        setTimeout(startRecording, 500);
+                    }
+                };
                 audio.play();
             }
         } catch (error) {
+            isSpeaking = false;
             console.error('Eleven Labs API error:', error);
         }
     }
-
+    
 
 });
