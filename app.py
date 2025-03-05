@@ -1,12 +1,15 @@
 from flask import Flask, render_template, request, jsonify
 import os
 import google.generativeai as genai
-import os
 import uuid
 from flask import send_file
 from elevenlabs import VoiceSettings
 from elevenlabs.client import ElevenLabs
 
+import io
+import sys
+from contextlib import redirect_stdout
+        
 from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
@@ -78,6 +81,22 @@ def call_elevenlabs():
         return jsonify({"audio_url": "/" + save_file_path})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/execute_python', methods=['POST'])
+def execute_python():
+    code = request.json.get('code', '')
+    output = ""
+    
+    try:
+        # Execute the code with captured stdout
+        temp_stdout = io.StringIO()
+        with redirect_stdout(temp_stdout):
+            exec(code)
+        output = temp_stdout.getvalue()
+        
+        return jsonify({"result": output, "error": None})
+    except Exception as e:
+        return jsonify({"result": None, "error": str(e)})
 
 if __name__ == '__main__':
     app.run(debug=True)

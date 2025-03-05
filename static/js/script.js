@@ -242,4 +242,33 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Eleven Labs API error:', error);
         }
     }
+
+    const executeButton = document.getElementById('executeButton');
+    const pythonCode = document.getElementById('pythonCode');
+    const executionResult = document.getElementById('executionResult');
+
+    executeButton.addEventListener('click', async function() {
+        const code = pythonCode.value;
+        executionResult.innerHTML = '<p>Executing...</p>';
+        
+        try {
+            const response = await fetch('/execute_python', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ code: code })
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                executionResult.innerHTML = `<p class="text-danger">Error: ${data.error}</p>`;
+            } else {
+                executionResult.innerHTML = `<pre class="bg-dark text-light p-2">${data.result}</pre>`;
+            }
+        } catch (error) {
+            executionResult.innerHTML = `<p class="text-danger">Request failed: ${error.message}</p>`;
+        }
+    });
 });
