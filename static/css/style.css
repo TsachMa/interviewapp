@@ -7,6 +7,21 @@
 #pythonCode {
     font-family: monospace;
     min-height: 60vh;
+    resize: none;
+    padding: 8px;
+    margin: 0;
+    border: none;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: transparent;
+    background: transparent;
+    caret-color: white;
+    z-index: 2;
+    tab-size: 4;
+    -moz-tab-size: 4;
 }
 
 body {
@@ -23,20 +38,50 @@ body {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 
-#editor {
-    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-    tab-size: 4;
-    -moz-tab-size: 4;
-    white-space: pre;
-    font-size: 14px;
-    line-height: 1.4;
-  }
-  
-  #editor pre, #editor code {
-    white-space: pre;
-    tab-size: 4;
-    -moz-tab-size: 4;
-    font-family: inherit;
+/* Syntax highlighting styles */
+#editor-container {
+    position: relative;
+    height: 60vh;
+    overflow: auto;
+}
+
+#highlighting-content {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     margin: 0;
-    background: transparent;
-  }
+    padding: 8px;
+    overflow: hidden;
+    white-space: pre;
+    z-index: 1;
+    background-color: #282c34;
+}
+
+/* Ensure that line-height and font-size match between textarea and code elements */
+#highlighting-content, #pythonCode {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+    tab-size: 4;
+    -moz-tab-size: 4;
+}
+
+/* Scrollbar styling for the editor */
+#editor-container::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+#editor-container::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+#editor-container::-webkit-scrollbar-thumb {
+    background: #888;
+}
+
+#editor-container::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

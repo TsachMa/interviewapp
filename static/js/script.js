@@ -243,8 +243,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    const executeButton = document.getElementById('executeButton');
+    // Syntax highlighting setup
     const pythonCode = document.getElementById('pythonCode');
+    const highlightingContent = document.getElementById('highlighting-content');
+    
+    // Update the highlighting when the code changes
+    function updateHighlighting() {
+        // Get the code from the textarea
+        const code = pythonCode.value;
+        
+        // Update the content of the highlighting element
+        highlightingContent.textContent = code;
+        
+        // Apply highlight.js
+        hljs.highlightElement(highlightingContent);
+        
+        // Sync scroll positions
+        highlightingContent.scrollTop = pythonCode.scrollTop;
+        highlightingContent.scrollLeft = pythonCode.scrollLeft;
+    }
+    
+    // Add event listeners for the code editor
+    pythonCode.addEventListener('input', updateHighlighting);
+    pythonCode.addEventListener('scroll', function() {
+        highlightingContent.scrollTop = pythonCode.scrollTop;
+        highlightingContent.scrollLeft = pythonCode.scrollLeft;
+    });
+    
+    // Handle tab key in the editor
     pythonCode.addEventListener('keydown', function(e) {
         if (e.key === 'Tab') {
             e.preventDefault();
@@ -256,8 +282,17 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Move cursor after the inserted spaces
             this.selectionStart = this.selectionEnd = start + 4;
+            
+            // Update syntax highlighting
+            updateHighlighting();
         }
     });
+    
+    // Initialize highlighting
+    updateHighlighting();
+
+    // Execute button functionality
+    const executeButton = document.getElementById('executeButton');
     const executionResult = document.getElementById('executionResult');
 
     executeButton.addEventListener('click', async function() {
