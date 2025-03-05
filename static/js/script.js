@@ -1,14 +1,20 @@
 document.addEventListener('DOMContentLoaded', function() {
     const recordButton = document.getElementById('recordButton');
     const transcriptionResult = document.getElementById('transcriptionResult');
+    const chatHistoryElement = document.getElementById('chatHistory');
+    const clearHistoryButton = document.getElementById('clearHistoryButton');
 
     let isRecording = false;
     let mediaRecorder = null;
     let audioChunks = [];
     let chatHistory = [];
+    let displayedChatHistory = []; // Array to store messages for display purposes
 
     let currentAudio = null;
     let stopButton = null;
+
+    // Load chat history from localStorage if available
+    loadChatHistory();
 
     // After DOMContentLoaded, add this code to create the stop button (but initially hidden)
     // Add this after the recordButton is defined
@@ -17,6 +23,11 @@ document.addEventListener('DOMContentLoaded', function() {
     stopButton.className = 'btn btn-warning w-100 mb-3 d-none';
     stopButton.innerHTML = '<i class="bi bi-volume-mute-fill"></i> Stop Speech';
     recordButton.parentNode.insertBefore(stopButton, recordButton.nextSibling);
+
+    // Add event listener for the clear history button
+    clearHistoryButton.addEventListener('click', function() {
+        clearChatHistory();
+    });
 
     // Add event listener for the stop button
     stopButton.addEventListener('click', function() {
@@ -172,8 +183,16 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (finalTranscript) {
                 transcriptionResult.innerHTML += '<p>Sending to Gemini...</p>';
+                
+                // Add user message to displayed chat history
+                addMessageToDisplay('user', finalTranscript);
+                
                 callGemini(finalTranscript).then(response => {
                     transcriptionResult.innerHTML += `<div class="mt-3 p-3 bg-light rounded"><h5>Gemini Response:</h5><p>${response}</p></div>`;
+                    
+                    // Add assistant message to displayed chat history
+                    addMessageToDisplay('assistant', response);
+                    
                     finalTranscript = '';
                     // Speaking will handle restarting recording when done
                     speakText(response);
@@ -184,6 +203,87 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // Function to add a message to the displayed chat history
+    function addMessageToDisplay(role, text) {
+        // Create a new message object
+        const message = {
+            role: role,
+            text: text,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Add to the displayed chat history array
+        displayedChatHistory.push(message);
+        
+        // Update the chat history display
+        updateChatHistoryDisplay();
+        
+        // Save to localStorage
+        saveChatHistory();
+    }
+    
+    // Function to update the chat history display
+    function updateChatHistoryDisplay() {
+        // Clear the current display
+        chatHistoryElement.innerHTML = '';
+        
+        // Add each message to the display
+        displayedChatHistory.forEach(message => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`;
+            
+            // Create header with role and timestamp
+            const header = document.createElement('div');
+            header.className = 'message-header small text-muted';
+            
+            // Format the timestamp
+            const timestamp = new Date(message.timestamp);
+            const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            header.textContent = `${message.role === 'user' ? 'You' : 'Interviewer'} - ${timeString}`;
+            
+            // Create content
+            const content = document.createElement('div');
+            content.className = 'message-content';
+            content.textContent = message.text;
+            
+            // Add header and content to message
+            messageDiv.appendChild(header);
+            messageDiv.appendChild(content);
+            
+            // Add message to chat history
+            chatHistoryElement.appendChild(messageDiv);
+        });
+        
+        // Scroll to the bottom
+        chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
+    }
+    
+    // Function to save chat history to localStorage
+    function saveChatHistory() {
+        localStorage.setItem('interviewChatHistory', JSON.stringify(displayedChatHistory));
+    }
+    
+    // Function to load chat history from localStorage
+    function loadChatHistory() {
+        const savedHistory = localStorage.getItem('interviewChatHistory');
+        if (savedHistory) {
+            displayedChatHistory = JSON.parse(savedHistory);
+            updateChatHistoryDisplay();
+        }
+    }
+    
+    // Function to clear chat history
+    function clearChatHistory() {
+        // Clear the chat history array
+        displayedChatHistory = [];
+        
+        // Update the display
+        updateChatHistoryDisplay();
+        
+        // Clear from localStorage
+        localStorage.removeItem('interviewChatHistory');
+    }
 
     function speakText(text) {
         // const utterance = new SpeechSynthesisUtterance(text);

@@ -19,6 +19,30 @@
             font-family: monospace;
             overflow-x: auto;
         }
+        
+        .chat-history {
+            max-height: 50vh;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            background-color: white;
+        }
+        
+        .chat-message {
+            padding: 10px;
+            margin: 5px;
+            border-radius: 5px;
+        }
+        
+        .user-message {
+            background-color: #e6f2ff;
+            border-left: 3px solid #0d6efd;
+        }
+        
+        .assistant-message {
+            background-color: #f0f0f0;
+            border-left: 3px solid #6c757d;
+        }
     </style>
 </head>
 <body>
@@ -31,6 +55,15 @@
                     <i class="bi bi-mic-fill"></i> Record Audio
                 </button>
                 <div id="transcriptionResult" class="mb-3 p-2 bg-light rounded"></div>
+                
+                <!-- Chat History Section -->
+                <h4 class="mt-4">Chat History</h4>
+                <div id="chatHistory" class="chat-history mb-3">
+                    <!-- Chat messages will be added here dynamically -->
+                </div>
+                <button id="clearHistoryButton" class="btn btn-outline-secondary btn-sm w-100">
+                    <i class="bi bi-trash"></i> Clear History
+                </button>
             </div>
             
             <!-- Center Code Pane -->

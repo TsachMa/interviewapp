@@ -38,6 +38,44 @@ body {
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
 }
 
+/* Chat history styling */
+.chat-history {
+    max-height: 50vh;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    background-color: white;
+    padding: 10px;
+}
+
+.chat-message {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 5px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.user-message {
+    background-color: #e6f2ff;
+    border-left: 3px solid #0d6efd;
+}
+
+.assistant-message {
+    background-color: #f0f0f0;
+    border-left: 3px solid #6c757d;
+}
+
+.message-header {
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+
+.message-content {
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 0.9rem;
+}
+
 /* Syntax highlighting styles */
 #editor-container {
     position: relative;
@@ -84,4 +122,23 @@ body {
 
 #editor-container::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+/* Custom scrollbar for chat history */
+.chat-history::-webkit-scrollbar {
+    width: 6px;
+}
+
+.chat-history::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.chat-history::-webkit-scrollbar-thumb {
+    background: #ccc;
+    border-radius: 10px;
+}
+
+.chat-history::-webkit-scrollbar-thumb:hover {
+    background: #999;
 }
