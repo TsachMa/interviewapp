@@ -68,6 +68,9 @@ document.addEventListener('DOMContentLoaded', function() {
             The user will be writing code in a Python editor. I will share the current state 
             of their code with you in each message. Please reference their code 
             when giving feedback, suggestions, or asking questions.
+
+            DO NOT INCLUDE ANY SPECIAL CHARACTERS LIKE * OR # OR ' IN YOUR RESPONSES. 
+            DO NOT RESPOND WITH MORE THAN TWO SENTENCES.
         `]
     });
 
@@ -84,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let pauseTimer = null;
     let autoRestart = true;
 
-    const PAUSE_THRESHOLD = 2000; // 2 seconds of silence
+    const PAUSE_THRESHOLD = 5000; // 2 seconds of silence
 
     // Create a new SpeechRecognition instance
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
