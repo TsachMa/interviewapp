@@ -6,6 +6,21 @@ document.addEventListener('DOMContentLoaded', function() {
     let mediaRecorder = null;
     let audioChunks = [];
     let chatHistory = [];
+
+    // Updated initial prompt to include awareness of code editor
+    chatHistory.push({
+        "role": "user", 
+        "parts": [`
+            Pretend you are a interviewer conducting a programming interview. 
+            The user is going to solve the problem 2Sum. 
+            Guide the user through the process of solving the problem.
+            
+            The user will be writing code in a Python editor. I will share the current state 
+            of their code with you in each message. Please reference their code 
+            when giving feedback, suggestions, or asking questions.
+        `]
+    });
+    
     // init ChatHistory with 
     // "You are a technical interviewer. Ask challenging questions about programming, data structures, and algorithms. Be concise. Follow up on the candidate's answers."
     chatHistory.push({
@@ -189,6 +204,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function callGemini(text) {
         try {
+            // Get the current code from the editor
+            const currentCode = pythonCode.value;
+            
             chatHistory.push({"role": "user", "parts": [text]});
             const response = await fetch('/gemini', {
                 method: 'POST',
@@ -197,7 +215,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify({ 
                     prompt: text,
-                    history: chatHistory 
+                    history: chatHistory,
+                    code: currentCode  // Add the current code from the editor
                 })
             });
             const data = await response.json();

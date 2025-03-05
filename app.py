@@ -32,13 +32,29 @@ def call_gemini():
     data = request.json
     msg = data.get('prompt', '')
     chat_history = data.get('history', [])
+    code = data.get('code', '')  # Get the code from the request
     
     try:
         # Start a chat session with the model
         chat_session = model.start_chat(history=chat_history)
         
-        # Send the user's message
-        response = chat_session.send_message(msg)
+        # If there's code in the editor, include it in the message
+        if code:
+            # Format the message to include the current code
+            msg_with_code = f"""
+                                {msg}
+
+                                Current code in the editor:
+                                ```python
+                                {code}
+                                ```
+                                """
+            # Send the enhanced message with code
+            response = chat_session.send_message(msg_with_code)
+        else:
+            # Just send the original message if no code
+            response = chat_session.send_message(msg)
+            
         responseText = response.text
 
         return jsonify({"response": responseText})
