@@ -5,7 +5,17 @@ document.addEventListener('DOMContentLoaded', function() {
     let isRecording = false;
     let mediaRecorder = null;
     let audioChunks = [];
-
+    let chatHistory = [];
+    // init ChatHistory with 
+    // "You are a technical interviewer. Ask challenging questions about programming, data structures, and algorithms. Be concise. Follow up on the candidate's answers."
+    chatHistory.push({
+        "role": "user", 
+        "parts": [`
+            Pretend you are a interviewer conducting a programming interview. 
+            The user is going to solve the problem 2Sum. 
+            Guide the user through the process of solving the problem
+        `]
+    });
     let pauseTimer = null;
     let autoRestart = true;
 
@@ -179,14 +189,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function callGemini(text) {
         try {
+            chatHistory.push({"role": "user", "parts": [text]});
             const response = await fetch('/gemini', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ prompt: text })
+                body: JSON.stringify({ 
+                    prompt: text,
+                    history: chatHistory 
+                })
             });
             const data = await response.json();
+            chatHistory.push({"role": "model", "parts": [data.response]});
             return data.response;
         } catch (error) {
             console.error('Error calling Gemini API:', error);
@@ -227,6 +242,4 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Eleven Labs API error:', error);
         }
     }
-    
-
 });
