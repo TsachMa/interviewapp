@@ -245,6 +245,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const executeButton = document.getElementById('executeButton');
     const pythonCode = document.getElementById('pythonCode');
+    pythonCode.addEventListener('keydown', function(e) {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = this.selectionStart;
+            const end = this.selectionEnd;
+            
+            // Insert 4 spaces (Python standard) at cursor position
+            this.value = this.value.substring(0, start) + '    ' + this.value.substring(end);
+            
+            // Move cursor after the inserted spaces
+            this.selectionStart = this.selectionEnd = start + 4;
+        }
+    });
     const executionResult = document.getElementById('executionResult');
 
     executeButton.addEventListener('click', async function() {

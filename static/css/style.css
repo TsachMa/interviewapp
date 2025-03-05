@@ -1,20 +1,42 @@
-.hello-text {
-    color: #007bff;
-    font-weight: bold;
-    margin-bottom: 20px;
-}
-
-.card {
-    border-radius: 15px;
-    padding: 20px;
+.sidebar {
     background-color: #f8f9fa;
-    border: none;
+    min-height: 100vh;
+    border-right: 1px solid #dee2e6;
 }
 
-.btn-primary {
-    margin-top: 15px;
+#pythonCode {
+    font-family: monospace;
+    min-height: 60vh;
 }
 
 body {
     background-color: #e9ecef;
 }
+
+#transcriptionResult {
+    max-height: 50vh;
+    overflow-y: auto;
+}
+
+.card {
+    border-radius: 10px;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+}
+
+#editor {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    white-space: pre;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+  
+  #editor pre, #editor code {
+    white-space: pre;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    font-family: inherit;
+    margin: 0;
+    background: transparent;
+  }
