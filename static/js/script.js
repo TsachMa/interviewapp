@@ -7,6 +7,45 @@ document.addEventListener('DOMContentLoaded', function() {
     let audioChunks = [];
     let chatHistory = [];
 
+    let currentAudio = null;
+    let stopButton = null;
+
+    // After DOMContentLoaded, add this code to create the stop button (but initially hidden)
+    // Add this after the recordButton is defined
+    stopButton = document.createElement('button');
+    stopButton.id = 'stopSpeechButton';
+    stopButton.className = 'btn btn-warning w-100 mb-3 d-none';
+    stopButton.innerHTML = '<i class="bi bi-volume-mute-fill"></i> Stop Speech';
+    recordButton.parentNode.insertBefore(stopButton, recordButton.nextSibling);
+
+    // Add event listener for the stop button
+    stopButton.addEventListener('click', function() {
+        stopCurrentSpeech();
+    });
+
+    // Function to stop current speech
+    function stopCurrentSpeech() {
+        if (currentAudio && !currentAudio.paused) {
+            currentAudio.pause();
+            currentAudio.currentTime = 0;
+            isSpeaking = false;
+            stopButton.classList.add('d-none');
+            
+            // Only restart recording if in auto mode
+            if (autoRestart) {
+                setTimeout(startRecording, 500);
+            }
+        }
+    }
+
+    // Add this after other event listeners in the DOMContentLoaded function
+    document.addEventListener('keydown', function(event) {
+        // Escape key to stop speech
+        if (event.key === 'Escape') {
+            stopCurrentSpeech();
+        }
+    });
+
     // Updated initial prompt to include awareness of code editor
     chatHistory.push({
         "role": "user", 
@@ -20,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
             when giving feedback, suggestions, or asking questions.
         `]
     });
-    
+
     // init ChatHistory with 
     // "You are a technical interviewer. Ask challenging questions about programming, data structures, and algorithms. Be concise. Follow up on the candidate's answers."
     chatHistory.push({
@@ -61,6 +100,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
 
     async function startRecording() {
+        // First stop any ongoing speech
+        stopCurrentSpeech();
+        
         transcriptionResult.innerHTML = '<p>Requesting access to your microphone...</p>';
         finalTranscript = ''; // reset the final transcript
         try {
@@ -141,6 +183,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+    
 
     function speakText(text) {
         // const utterance = new SpeechSynthesisUtterance(text);
@@ -246,18 +289,25 @@ document.addEventListener('DOMContentLoaded', function() {
             
             const data = await response.json();
             if (data.audio_url) {
-                const audio = new Audio(data.audio_url);
-                audio.onended = function() {
+                // Store the audio element globally
+                currentAudio = new Audio(data.audio_url);
+                
+                // Show the stop button when speech starts
+                stopButton.classList.remove('d-none');
+                
+                currentAudio.onended = function() {
                     isSpeaking = false;
+                    stopButton.classList.add('d-none');
                     // Only restart recording after speech ends if in auto mode
                     if (autoRestart) {
                         setTimeout(startRecording, 500);
                     }
                 };
-                audio.play();
+                currentAudio.play();
             }
         } catch (error) {
             isSpeaking = false;
+            stopButton.classList.add('d-none');
             console.error('Eleven Labs API error:', error);
         }
     }

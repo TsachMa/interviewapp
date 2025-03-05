@@ -9,6 +9,17 @@
     <!-- Add Highlight.js CSS -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .problem-statement {
+            background-color: #f8f9fa;
+            border-left: 4px solid #0d6efd;
+            padding: 15px;
+            margin-bottom: 20px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            overflow-x: auto;
+        }
+    </style>
 </head>
 <body>
     <div class="container-fluid">
@@ -24,6 +35,32 @@
             
             <!-- Center Code Pane -->
             <div class="col-md-9 p-3">
+                <!-- Problem Statement Panel -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h4>Problem Statement</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="problem-statement">Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
+
+You may assume that each input would have exactly one solution, and you may not use the same element twice.
+
+You can return the answer in any order.
+
+Examples:
+Input: nums = [2,7,11,15], target = 9 => Output: [0,1]
+Input: nums = [3,2,4], target = 6 =>  Output: [1,2]
+Input: nums = [3,3], target = 6 =>  Output: [0,1]
+
+Constraints:
+2 <= nums.length <= 104
+-109 <= nums[i] <= 109
+-109 <= target <= 109
+Only one valid answer exists.</div>
+                    </div>
+                </div>
+                
+                <!-- Code Editor Card -->
                 <div class="card">
                     <div class="card-header">
                         <h4>Code Editor</h4>
@@ -31,7 +68,11 @@
                     <div class="card-body">
                         <div id="editor-container" class="mb-2 border rounded">
                             <pre><code id="highlighting-content" class="language-python"></code></pre>
-                            <textarea id="pythonCode" class="form-control" rows="15" placeholder="Enter Python code here"></textarea>
+                            <textarea id="pythonCode" class="form-control" rows="15" placeholder="Enter Python code here">
+def twoSum(nums, target):
+    # Your solution here
+    pass
+                            </textarea>
                         </div>
                         <button id="executeButton" class="btn btn-primary">Execute Python</button>
                         <div id="executionResult" class="mt-2 p-2 bg-light"></div>
