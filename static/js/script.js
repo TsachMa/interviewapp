@@ -540,4 +540,70 @@ document.addEventListener('DOMContentLoaded', function() {
             executionResult.innerHTML = `<p class="text-danger">Request failed: ${error.message}</p>`;
         }
     });
+
+    // Add these new variables and elements
+    const textMessageInput = document.getElementById('textMessageInput');
+    const sendTextButton = document.getElementById('sendTextButton');
+    
+    // Add event listener for the send button
+    sendTextButton.addEventListener('click', function() {
+        sendTextMessage();
+    });
+    
+    // Add event listener for Enter key in the text input
+    textMessageInput.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            sendTextMessage();
+        }
+    });
+    
+    // Function to send text message
+    function sendTextMessage() {
+        const textMessage = textMessageInput.value.trim();
+        
+        if (textMessage) {
+            // Clear the input field
+            textMessageInput.value = '';
+            
+            // Add user message to displayed chat history
+            addMessageToDisplay('user', textMessage);
+            
+            // Show processing state
+            transcriptionResult.innerHTML = '<p>Sending to interviewer...</p>';
+            
+            // Call Gemini with the text message
+            callGemini(textMessage).then(response => {
+                // Check if the response signals a phase change
+                if (response.includes("You can start coding now. I'll only respond to direct questions from this point on.")) {
+                    interviewPhase = "coding";
+                }
+                
+                // In coding phase, check if the response starts with the question/notquestion indicator
+                let displayResponse = response;
+                if (interviewPhase === "coding") {
+                    if (response.startsWith("question")) {
+                        // Remove the indicator before displaying
+                        displayResponse = response.substring("question".length).trim();
+                    } else if (response.startsWith("notquestion")) {
+                        // Only autorestart recording if not a question - don't actually show response
+                        displayResponse = response.substring("notquestion".length).trim();
+                    }
+                }
+                
+                transcriptionResult.innerHTML = `<div class="mt-3 p-3 bg-light rounded"><h5>Interviewer Response:</h5><p>${displayResponse}</p></div>`;
+                
+                // Add assistant message to displayed chat history
+                addMessageToDisplay('assistant', displayResponse);
+                
+                // Speaking will handle restarting recording when done
+                speakText(displayResponse);
+                
+                // Increment message count
+                messagesCount++;
+            });
+        }
+    }
+
 });
+

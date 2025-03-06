@@ -142,3 +142,38 @@ body {
 .chat-history::-webkit-scrollbar-thumb:hover {
     background: #999;
 }
+
+/* Add these CSS rules to your existing style.css file or inline styles */
+
+/* Style the text input area */
+#textMessageInput {
+    border: 1px solid #ced4da;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+#textMessageInput:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+/* Style the send button */
+#sendTextButton {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+#sendTextButton:hover {
+    background-color: #0b5ed7;
+    border-color: #0a58ca;
+}
+
+/* Make sure the sidebar content fits nicely */
+.sidebar {
+    max-height: 100vh;
+    overflow-y: auto;
+}
+
+/* Add some gap between the chat history and the type message area */
+#clearHistoryButton {
+    margin-bottom: 1rem;
+}
