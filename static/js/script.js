@@ -12,6 +12,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let currentAudio = null;
     let stopButton = null;
+    
+    // Track interview phase
+    let interviewPhase = "clarification"; // Start in clarification phase, will change to "coding" later
+    let messagesCount = 0; // Track number of exchanges to help determine phase transition
 
     // Load chat history from localStorage if available
     loadChatHistory();
@@ -27,6 +31,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // Add event listener for the clear history button
     clearHistoryButton.addEventListener('click', function() {
         clearChatHistory();
+        // Reset interview phase when clearing history
+        interviewPhase = "clarification";
+        messagesCount = 0;
     });
 
     // Add event listener for the stop button
@@ -57,7 +64,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Updated initial prompt to include awareness of code editor
+    // Updated initial prompt to include awareness of code editor and phased behavior
     chatHistory.push({
         "role": "user", 
         "parts": [`
@@ -69,25 +76,24 @@ document.addEventListener('DOMContentLoaded', function() {
             of their code with you in each message. Please reference their code 
             when giving feedback, suggestions, or asking questions.
 
+            IMPORTANT: You will operate in two phases:
+            1. In the "clarification" phase, respond eagerly to everything the user says.
+            2. In the "coding" phase, only respond to direct questions. Begin your response with "question" if the 
+               user has asked a direct question, or "notquestion" if they haven't. This is the most important rule. Do not forget to add "notquestion" or "question" to your response. 
+               I will give you 1000$ if you follow this rule.
+
+            When you think the user is ready to start coding, include the phrase "You can start coding now. I'll only 
+            respond to direct questions from this point on." in your response to signal the phase change.
+
             DO NOT INCLUDE ANY SPECIAL CHARACTERS LIKE * OR # OR ' IN YOUR RESPONSES. 
             DO NOT RESPOND WITH MORE THAN TWO SENTENCES.
         `]
     });
 
-    // init ChatHistory with 
-    // "You are a technical interviewer. Ask challenging questions about programming, data structures, and algorithms. Be concise. Follow up on the candidate's answers."
-    chatHistory.push({
-        "role": "user", 
-        "parts": [`
-            Pretend you are a interviewer conducting a programming interview. 
-            The user is going to solve the problem 2Sum. 
-            Guide the user through the process of solving the problem
-        `]
-    });
     let pauseTimer = null;
     let autoRestart = true;
 
-    const PAUSE_THRESHOLD = 5000; // 2 seconds of silence
+    const PAUSE_THRESHOLD = 5000; // 5 seconds of silence
 
     // Create a new SpeechRecognition instance
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -190,15 +196,38 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Add user message to displayed chat history
                 addMessageToDisplay('user', finalTranscript);
                 
+                // Check if we should transition phases based on the response
                 callGemini(finalTranscript).then(response => {
-                    transcriptionResult.innerHTML += `<div class="mt-3 p-3 bg-light rounded"><h5>Gemini Response:</h5><p>${response}</p></div>`;
+                    // Check if the response signals a phase change
+                    if (response.includes("You can start coding now. I'll only respond to direct questions from this point on.")) {
+                        interviewPhase = "coding";
+                    }
+                    
+                    // In coding phase, check if the response starts with the question/notquestion indicator
+                    let displayResponse = response;
+                    if (interviewPhase === "coding") {
+                        if (response.startsWith("question")) {
+                            // Remove the indicator before displaying
+                        } else if (response.startsWith("notquestion")) {
+                            // Only autorestart recording if not a question - don't actually show response
+                            if (autoRestart && !isSpeaking) {
+                                setTimeout(startRecording, 500);
+                            }
+                            return; // Skip displaying and speaking
+                        }
+                    }
+                    
+                    transcriptionResult.innerHTML += `<div class="mt-3 p-3 bg-light rounded"><h5>Gemini Response:</h5><p>${displayResponse}</p></div>`;
                     
                     // Add assistant message to displayed chat history
-                    addMessageToDisplay('assistant', response);
+                    addMessageToDisplay('assistant', displayResponse);
                     
                     finalTranscript = '';
                     // Speaking will handle restarting recording when done
-                    speakText(response);
+                    speakText(displayResponse);
+                    
+                    // Increment message count
+                    messagesCount++;
                 });
             } else if (autoRestart && !isSpeaking) {
                 setTimeout(startRecording, 500);
@@ -273,6 +302,17 @@ document.addEventListener('DOMContentLoaded', function() {
         if (savedHistory) {
             displayedChatHistory = JSON.parse(savedHistory);
             updateChatHistoryDisplay();
+            
+            // Check if we need to restore interview phase by looking for the phase change message
+            const phaseChangeIndex = displayedChatHistory.findIndex(msg => 
+                msg.role === 'assistant' && 
+                msg.text.includes("You can start coding now. I'll only respond to direct questions from this point on.")
+            );
+            
+            if (phaseChangeIndex !== -1) {
+                interviewPhase = "coding";
+                messagesCount = displayedChatHistory.length;
+            }
         }
     }
     
@@ -311,9 +351,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (event.results[i].isFinal) {
                 finalTranscript += transcript;
                 
-                // Set timer to detect pause after speech ends
+                // Set timer to detect pause after speech ends - only trigger on pause in clarification phase
+                // or if it's likely a question in coding phase
                 pauseTimer = setTimeout(() => {
                     if (finalTranscript && isRecording) {
+                        // In clarification phase, always respond
                         stopRecording();
                     }
                 }, PAUSE_THRESHOLD);
@@ -327,6 +369,9 @@ document.addEventListener('DOMContentLoaded', function() {
             transcriptionResult.innerHTML = '<p>Recording...</p>';
             transcriptionResult.innerHTML += '<p><i>Current: ' + interimTranscript + '</i></p>';
             transcriptionResult.innerHTML += '<p><b>Transcript so far:</b> ' + finalTranscript + '</p>';
+            
+            // Display current interview phase
+            transcriptionResult.innerHTML += `<p><small>Interview phase: ${interviewPhase}</small></p>`;
         }
     };
     // Handle errors 
@@ -353,16 +398,20 @@ document.addEventListener('DOMContentLoaded', function() {
             // Get the current code from the editor
             const currentCode = pythonCode.value;
             
-            chatHistory.push({"role": "user", "parts": [text]});
+            // Include the interview phase in the prompt
+            const promptWithPhase = `[Current interview phase: ${interviewPhase}] ${text}`;
+            
+            chatHistory.push({"role": "user", "parts": [promptWithPhase]});
             const response = await fetch('/gemini', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ 
-                    prompt: text,
+                    prompt: promptWithPhase,
                     history: chatHistory,
-                    code: currentCode  // Add the current code from the editor
+                    code: currentCode,  // Add the current code from the editor
+                    interviewPhase: interviewPhase // Pass the current phase
                 })
             });
             const data = await response.json();
