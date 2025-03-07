@@ -33,8 +33,33 @@ def call_gemini():
     msg = data.get('prompt', '')
     chat_history = data.get('history', [])
     code = data.get('code', '')  # Get the code from the request
+    interview_phase = data.get('interviewPhase', 'clarification')
     
     try:
+        # If in coding phase, first check if the message is a question
+        if interview_phase == "coding":
+            # Create a separate model instance for classification to avoid affecting chat history
+            question_classifier = genai.GenerativeModel(model_name="gemini-1.5-flash")
+            
+            # Simple prompt to check if the message is a question
+            classification_prompt = f"""
+            Determine if the following text contains a direct question that expects an answer.
+            Text: "{msg}"
+            Respond with only "YES" if it contains a direct question, or "NO" if it does not.
+            """
+            
+            classification_response = question_classifier.generate_content(classification_prompt)
+            is_question = "YES" in classification_response.text.strip().upper()
+            
+            # If not a question in coding phase, return early with a notquestion prefix
+            if not is_question:
+                return jsonify({"response": f"notquestion"})
+            
+            # If it is a question, continue with "question" prefix
+            prefix = "question "
+        else:
+            prefix = ""  # No prefix needed in clarification phase
+        
         # Start a chat session with the model
         chat_session = model.start_chat(history=chat_history)
         
@@ -42,13 +67,13 @@ def call_gemini():
         if code:
             # Format the message to include the current code
             msg_with_code = f"""
-                                {msg}
+                            {msg}
 
-                                Current code in the editor:
-                                ```python
-                                {code}
-                                ```
-                                """
+                            Current code in the editor:
+                            ```python
+                            {code}
+                            ```
+                            """
             # Send the enhanced message with code
             response = chat_session.send_message(msg_with_code)
         else:
@@ -56,11 +81,15 @@ def call_gemini():
             response = chat_session.send_message(msg)
             
         responseText = response.text
+        
+        # Add the appropriate prefix in coding phase
+        if interview_phase == "coding" and is_question:
+            responseText = responseText
 
         return jsonify({"response": responseText})
     except Exception as e:
         return jsonify({"response": f"Error: {str(e)}"}), 500
-
+    
 @app.route('/elevenlabs', methods=['POST'])
 def call_elevenlabs():
     data = request.json
