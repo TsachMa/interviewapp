@@ -18,6 +18,7 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 model = genai.GenerativeModel(
     model_name="gemini-1.5-flash"
 )
+question_classifier = genai.GenerativeModel(model_name="gemini-1.5-flash")
 
 app = Flask(__name__,
             static_folder = 'static',
@@ -39,8 +40,7 @@ def call_gemini():
         # If in coding phase, first check if the message is a question
         if interview_phase == "coding":
             # Create a separate model instance for classification to avoid affecting chat history
-            question_classifier = genai.GenerativeModel(model_name="gemini-1.5-flash")
-            
+
             # Simple prompt to check if the message is a question
             classification_prompt = f"""
             Determine if the following text contains a direct question that expects an answer.
@@ -55,11 +55,6 @@ def call_gemini():
             if not is_question:
                 return jsonify({"response": f"notquestion"})
             
-            # If it is a question, continue with "question" prefix
-            prefix = "question "
-        else:
-            prefix = ""  # No prefix needed in clarification phase
-        
         # Start a chat session with the model
         chat_session = model.start_chat(history=chat_history)
         
