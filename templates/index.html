@@ -52,9 +52,20 @@
             <!-- Left Sidebar -->
             <div class="col-md-3 p-3 sidebar">
                 <h3>Interview Controls</h3>
-                <button id="recordButton" class="btn btn-primary w-100 mb-3">
-                    <i class="bi bi-mic-fill"></i> Record Audio
-                </button>
+
+                <div class = "row mb-3" >
+                    <div class = "col-6">
+                        <button id="recordButton" class="btn btn-primary row mb-3">
+                            <i class="bi bi-mic-fill"></i> Record Audio
+                        </button>
+                    </div>
+                    <div class = "col-6">
+                        <button id="endInterviewButton" class="btn btn-danger row mb-3">
+                            <i class="bi bi-stop-fill"></i> End Interview
+                        </button>
+                    </div>
+                </div>
+
                 <div id="transcriptionResult" class="mb-3 p-2 bg-light rounded"></div>
                 
                 <!-- Chat History Section -->

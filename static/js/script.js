@@ -3,7 +3,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const transcriptionResult = document.getElementById('transcriptionResult');
     const chatHistoryElement = document.getElementById('chatHistory');
     const clearHistoryButton = document.getElementById('clearHistoryButton');
-
+    const endInterviewButton = document.getElementById('endInterviewButton');
+    
+    // Syntax highlighting setup
+    const pythonCode = document.getElementById('pythonCode');
+    const highlightingContent = document.getElementById('highlighting-content');
+   
     let isRecording = false;
     let mediaRecorder = null;
     let audioChunks = [];
@@ -78,10 +83,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             IMPORTANT: You will operate in two phases:
             1. In the "clarification" phase, respond eagerly to everything the user says.
-            2. In the "coding" phase, only respond to direct questions. Begin your response with "question" if the 
-               user has asked a direct question, or "notquestion" if they haven't. This is the most important rule. Do not forget to add "notquestion" or "question" to your response. 
-               I will give you 1000$ if you follow this rule.
-
+            2. In the "coding" phase, only respond to direct questions. 
+            
             When you think the user is ready to start coding, include the phrase "You can start coding now. I'll only 
             respond to direct questions from this point on." in your response to signal the phase change.
 
@@ -117,6 +120,45 @@ document.addEventListener('DOMContentLoaded', function() {
             stopRecording();
         }
     });
+
+    endInterviewButton.addEventListener('click', function() {
+        endInterview();
+    });
+    
+    // Function to end the interview and redirect to the analysis page
+    function endInterview() {
+        // Stop any ongoing recording or speech
+        if (isRecording) {
+            stopRecording();
+        }
+        stopCurrentSpeech();
+        
+        // We're already saving chat history to localStorage in the saveChatHistory function
+        // Just make sure the current code is also saved
+        localStorage.setItem('pythonCode', pythonCode.value);
+        
+        // Redirect to the analysis page
+        window.location.href = '/analysis';
+    }
+    
+    // Update the pythonCode event listener to save to localStorage
+    pythonCode.addEventListener('input', function() {
+        updateHighlighting();
+        // Save the code to localStorage whenever it changes
+        localStorage.setItem('pythonCode', pythonCode.value);
+    });
+    
+    // Function to load the code from localStorage when the page loads
+    function loadCodeFromStorage() {
+        const savedCode = localStorage.getItem('pythonCode');
+        if (savedCode) {
+            pythonCode.value = savedCode;
+            updateHighlighting();
+        }
+    }
+    
+    // Call this function when the page loads
+    loadCodeFromStorage();
     
 
     async function startRecording() {
@@ -464,10 +506,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Syntax highlighting setup
-    const pythonCode = document.getElementById('pythonCode');
-    const highlightingContent = document.getElementById('highlighting-content');
-    
     // Update the highlighting when the code changes
     function updateHighlighting() {
         // Get the code from the textarea

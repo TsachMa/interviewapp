@@ -9,7 +9,7 @@ from elevenlabs.client import ElevenLabs
 import io
 import sys
 from contextlib import redirect_stdout
-        
+import urllib.parse
 from dotenv import load_dotenv
 load_dotenv()  # Load environment variables from .env file
 
@@ -137,6 +137,57 @@ def execute_python():
         return jsonify({"result": output, "error": None})
     except Exception as e:
         return jsonify({"result": None, "error": str(e)})
+
+
+@app.route('/analysis')
+def analysis_page():
+    return render_template('analysis.html')
+
+@app.route('/generate_analysis', methods=['POST'])
+def generate_analysis():
+    try:
+        data = request.json
+        transcript = data.get('transcript', '')
+        code = data.get('code', '')
+        
+        # Only generate analysis if we have a transcript
+        if transcript:
+            # Prompt Gemini for analysis
+            analysis_prompt = f"""
+            You are an expert coding interview reviewer. Analyze this interview transcript about the 2Sum problem.
+            Provide a comprehensive but concise analysis of the candidate's performance, including:
+            1. Technical proficiency (how well did they handle the problem)
+            2. Communication skills (how well did they explain their approach)
+            3. Problem-solving approach (how structured was their thinking)
+            4. Areas of strength
+            5. Areas for improvement
+            
+            Here is the candidate's final code:
+            ```python
+            {code}
+            ```
+            
+            Here is the interview transcript:
+            {transcript}
+            
+            Provide your analysis in HTML format with appropriate formatting for readability.
+            """
+            
+            analysis_response = model.generate_content(analysis_prompt)
+            analysis_html = analysis_response.text
+            
+            return jsonify({
+                "analysis": analysis_html
+            })
+        else:
+            return jsonify({
+                "analysis": "<p>No interview data available for analysis.</p>"
+            })
+    except Exception as e:
+        return jsonify({
+            "error": str(e),
+            "analysis": f"<p>Error generating analysis: {str(e)}</p>"
+        }), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
