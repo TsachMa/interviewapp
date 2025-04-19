@@ -61,9 +61,14 @@
     <div class="container analysis-container py-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1>Interview Analysis</h1>
-            <a href="/" class="btn btn-outline-primary">
-                <i class="bi bi-arrow-left"></i> Back to Interview
-            </a>
+            <div>
+                <a href="/interviews" class="btn btn-outline-primary me-2">
+                    <i class="bi bi-folder"></i> All Interviews
+                </a>
+                <a href="/" class="btn btn-outline-primary">
+                    <i class="bi bi-arrow-left"></i> New Interview
+                </a>
+            </div>
         </div>
         
         <div class="card mb-4">
@@ -108,77 +113,189 @@
             const analysisContent = document.getElementById('analysisContent');
             const finalCode = document.getElementById('finalCode');
             
-            // Load the chat history from localStorage
-            const chatHistory = JSON.parse(localStorage.getItem('interviewChatHistory') || '[]');
+            // Get the interview ID from the URL if present
+            const pathParts = window.location.pathname.split('/');
+            const interviewId = pathParts.length > 2 ? parseInt(pathParts[2]) : null;
             
-            // Load the Python code from localStorage
-            const pythonCode = localStorage.getItem('pythonCode') || '';
-            
-            // Display the Python code
-            finalCode.textContent = pythonCode;
-            
-            // Display the transcript
-            if (chatHistory && chatHistory.length > 0) {
-                fullTranscript.innerHTML = '';
-                chatHistory.forEach(message => {
-                    const messageDiv = document.createElement('div');
-                    messageDiv.className = `chat-message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`;
+            // Function to load chat history from either localStorage or database
+            async function loadInterviewData() {
+                if (interviewId) {
+                    // Load from database
+                    try {
+                        const response = await fetch(`/get_interview/${interviewId}`);
+                        const data = await response.json();
+                        
+                        if (data.success && data.interview) {
+                            const interview = data.interview;
+                            
+                            // Display the code
+                            finalCode.textContent = interview.code || 'No code available';
+                            
+                            // Display the transcript
+                            if (interview.messages && interview.messages.length > 0) {
+                                fullTranscript.innerHTML = '';
+                                interview.messages.forEach(message => {
+                                    const messageDiv = document.createElement('div');
+                                    messageDiv.className = `chat-message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`;
+                                    
+                                    // Create header with role and timestamp
+                                    const header = document.createElement('div');
+                                    header.className = 'message-header small text-muted';
+                                    
+                                    // Format the timestamp
+                                    const timestamp = new Date(message.timestamp);
+                                    const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                    
+                                    header.textContent = `${message.role === 'user' ? 'You' : 'Interviewer'} - ${timeString}`;
+                                    
+                                    // Create content
+                                    const content = document.createElement('div');
+                                    content.className = 'message-content';
+                                    content.textContent = message.text;
+                                    
+                                    // Add header and content to message
+                                    messageDiv.appendChild(header);
+                                    messageDiv.appendChild(content);
+                                    
+                                    // Add message to transcript
+                                    fullTranscript.appendChild(messageDiv);
+                                });
+                            } else {
+                                fullTranscript.innerHTML = '<p>No transcript available.</p>';
+                            }
+                            
+                            // Format transcript for analysis
+                            const formattedTranscript = interview.messages ? 
+                                interview.messages.map(msg => `${msg.role === 'user' ? 'User' : 'Interviewer'}: ${msg.text}`).join('\n') :
+                                '';
+                            
+                            // If there's a saved analysis, use it
+                            if (interview.analysis) {
+                                analysisContent.innerHTML = interview.analysis;
+                            } else {
+                                // Generate analysis
+                                generateAnalysis(formattedTranscript, interview.code, interviewId);
+                            }
+                        } else {
+                            throw new Error('Interview not found');
+                        }
+                    } catch (error) {
+                        console.error('Error loading interview:', error);
+                        fullTranscript.innerHTML = '<p>Error loading interview data.</p>';
+                        finalCode.textContent = 'Error loading code';
+                        analysisContent.innerHTML = '<p>Error: Could not load interview data for analysis.</p>';
+                    }
+                } else {
+                    // Load from localStorage (existing implementation)
+                    const chatHistory = JSON.parse(localStorage.getItem('interviewChatHistory') || '[]');
+                    const pythonCode = localStorage.getItem('pythonCode') || '';
                     
-                    // Create header with role and timestamp
-                    const header = document.createElement('div');
-                    header.className = 'message-header small text-muted';
+                    // Display the Python code
+                    finalCode.textContent = pythonCode;
                     
-                    // Format the timestamp
-                    const timestamp = new Date(message.timestamp);
-                    const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    // Display the transcript
+                    if (chatHistory && chatHistory.length > 0) {
+                        fullTranscript.innerHTML = '';
+                        chatHistory.forEach(message => {
+                            const messageDiv = document.createElement('div');
+                            messageDiv.className = `chat-message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`;
+                            
+                            // Create header with role and timestamp
+                            const header = document.createElement('div');
+                            header.className = 'message-header small text-muted';
+                            
+                            // Format the timestamp
+                            const timestamp = new Date(message.timestamp);
+                            const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            
+                            header.textContent = `${message.role === 'user' ? 'You' : 'Interviewer'} - ${timeString}`;
+                            
+                            // Create content
+                            const content = document.createElement('div');
+                            content.className = 'message-content';
+                            content.textContent = message.text;
+                            
+                            // Add header and content to message
+                            messageDiv.appendChild(header);
+                            messageDiv.appendChild(content);
+                            
+                            // Add message to transcript
+                            fullTranscript.appendChild(messageDiv);
+                        });
+                    } else {
+                        fullTranscript.innerHTML = '<p>No transcript available.</p>';
+                    }
                     
-                    header.textContent = `${message.role === 'user' ? 'You' : 'Interviewer'} - ${timeString}`;
+                    // Format the transcript for sending to the API
+                    const formattedTranscript = chatHistory.map(msg => 
+                        `${msg.role === 'user' ? 'User' : 'Interviewer'}: ${msg.text}`
+                    ).join('\n');
                     
-                    // Create content
-                    const content = document.createElement('div');
-                    content.className = 'message-content';
-                    content.textContent = message.text;
-                    
-                    // Add header and content to message
-                    messageDiv.appendChild(header);
-                    messageDiv.appendChild(content);
-                    
-                    // Add message to transcript
-                    fullTranscript.appendChild(messageDiv);
-                });
-            } else {
-                fullTranscript.innerHTML = '<p>No transcript available.</p>';
+                    // Generate analysis
+                    generateAnalysis(formattedTranscript, pythonCode);
+                }
             }
             
-            // Format the transcript for sending to the API
-            const formattedTranscript = chatHistory.map(msg => 
-                `${msg.role === 'user' ? 'User' : 'Interviewer'}: ${msg.text}`
-            ).join('\n');
-            
-            // Generate analysis using the API
-            fetch('/generate_analysis', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ 
-                    transcript: formattedTranscript,
-                    code: pythonCode
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Update the analysis content
-                if (data.analysis) {
-                    analysisContent.innerHTML = data.analysis;
-                } else {
-                    analysisContent.innerHTML = '<p>No analysis available.</p>';
+            // Function to generate analysis
+            async function generateAnalysis(transcript, code, interview_id = null) {
+                try {
+                    // Check if we already have an analysis from the database
+                    if (interview_id) {
+                        const response = await fetch(`/get_interview/${interviewId}`);
+                        const data = await response.json();
+                        
+                        if (data.success && data.interview.analysis) {
+                            analysisContent.innerHTML = data.interview.analysis;
+                            return; // Exit early if we already have an analysis
+                        }
+                    }
+                    
+                    const response = await fetch('/generate_analysis', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ 
+                            transcript: transcript,
+                            code: code,
+                            interview_id: interview_id
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    // Update the analysis content
+                    if (data.analysis) {
+                        analysisContent.innerHTML = data.analysis;
+                        
+                        // If we have an interview_id, save the summary to the database
+                        if (interview_id) {
+                            try {
+                                await fetch(`/update_interview_summary/${interview_id}`, {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({ 
+                                        summary: data.analysis
+                                    })
+                                });
+                            } catch (error) {
+                                console.error('Error saving summary:', error);
+                            }
+                        }
+                    } else {
+                        analysisContent.innerHTML = '<p>No analysis available.</p>';
+                    }
                 }
-            })
-            .catch(error => {
-                console.error('Error generating analysis:', error);
-                analysisContent.innerHTML = '<p>Error generating analysis. Please try again.</p>';
-            });
+                catch (error) {
+                    console.error('Error generating analysis:', error);
+                    analysisContent.innerHTML = '<p>Error generating analysis. Please try again.</p>';
+                }
+            }
+            
+            // Start loading the interview data
+            loadInterviewData();
         });
     </script>
 </body>

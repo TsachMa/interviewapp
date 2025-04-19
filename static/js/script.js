@@ -32,6 +32,16 @@ document.addEventListener('DOMContentLoaded', function() {
     stopButton.className = 'btn btn-warning w-100 mb-3 d-none';
     stopButton.innerHTML = '<i class="bi bi-volume-mute-fill"></i> Stop Speech';
     recordButton.parentNode.insertBefore(stopButton, recordButton.nextSibling);
+    
+    // Add a "Saved Interviews" button to the sidebar
+    const savedInterviewsButton = document.createElement('a');
+    savedInterviewsButton.href = '/interviews';
+    savedInterviewsButton.className = 'btn btn-outline-primary w-100 mt-3';
+    savedInterviewsButton.innerHTML = '<i class="bi bi-folder"></i> Saved Interviews';
+    
+    // Find the clear history button and insert the new button after it
+    clearHistoryButton.parentNode.insertBefore(savedInterviewsButton, clearHistoryButton.nextSibling);
+    
 
     // Add event listener for the clear history button
     clearHistoryButton.addEventListener('click', function() {
@@ -125,7 +135,6 @@ document.addEventListener('DOMContentLoaded', function() {
         endInterview();
     });
     
-    // Function to end the interview and redirect to the analysis page
     function endInterview() {
         // Stop any ongoing recording or speech
         if (isRecording) {
@@ -133,13 +142,55 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         stopCurrentSpeech();
         
-        // We're already saving chat history to localStorage in the saveChatHistory function
-        // Just make sure the current code is also saved
+        // Save the current code to localStorage as a backup
         localStorage.setItem('pythonCode', pythonCode.value);
         
-        // Redirect to the analysis page
+        // Get all chat history
+        const chatHistoryData = displayedChatHistory;
+        
+        // Save the interview to the database
+        saveInterviewToDatabase(
+            'Interview ' + new Date().toLocaleString(), 
+            pythonCode.value,
+            chatHistoryData, 
+            'completed'
+        ).then(result => {
+            if (result.success) {
+                // Redirect to the analysis page for this interview
+                window.location.href = `/analysis/${result.interview_id}`;
+            } else {
+                // If there's an error saving to database, fall back to localStorage
+                window.location.href = '/analysis';
+            }
+        }).catch(error => {
+            console.error('Error saving interview:', error);
+            // Fall back to localStorage if database save fails
         window.location.href = '/analysis';
+        });
     }
+    
+    // Function to save interview to the database
+    async function saveInterviewToDatabase(title, code, chatHistory, status = 'completed') {
+        try {
+            const response = await fetch('/save_interview', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: title,
+                    code: code,
+                    chatHistory: chatHistory,
+                    status: status
+                })
+            });
+            
+            return await response.json();
+        } catch (error) {
+            console.error('Error saving to database:', error);
+            return { success: false, error: error.message };
+        }
+    }    
     
     // Update the pythonCode event listener to save to localStorage
     pythonCode.addEventListener('input', function() {
