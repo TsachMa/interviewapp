@@ -694,5 +694,79 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    const problemStatement = document.getElementById('problemStatement');
+    const editProblemButton = document.getElementById('editProblemButton');
+    
+    // Add event listener for the edit problem button
+    editProblemButton.addEventListener('click', function() {
+        const isEditable = problemStatement.contentEditable === 'true';
+        if (isEditable) {
+            // Save mode - disable editing
+            problemStatement.contentEditable = 'false';
+            editProblemButton.innerHTML = '<i class="bi bi-pencil"></i> Edit';
+            editProblemButton.classList.replace('btn-success', 'btn-outline-primary');
+            
+            // Save to localStorage
+            localStorage.setItem('problemStatement', problemStatement.innerText);
+            
+            // Update the initial prompt with new problem
+            chatHistory[0].parts = [`
+                Pretend you are a interviewer conducting a programming interview. 
+                The user is going to solve the following problem:
+                ${problemStatement.innerText}
+                
+                Guide the user through the process of solving the problem.
+                
+                The user will be writing code in a Python editor. I will share the current state 
+                of their code with you in each message. Please reference their code 
+                when giving feedback, suggestions, or asking questions.
+
+                IMPORTANT: You will operate in two phases:
+                1. In the "clarification" phase, respond eagerly to everything the user says.
+                2. In the "coding" phase, only respond to direct questions. 
+                
+                When you think the user is ready to start coding, include the phrase "You can start coding now. I'll only 
+                respond to direct questions from this point on." in your response to signal the phase change.
+
+                DO NOT INCLUDE ANY SPECIAL CHARACTERS LIKE * OR # OR ' IN YOUR RESPONSES. 
+                DO NOT RESPOND WITH MORE THAN TWO SENTENCES.
+            `];
+        } else {
+            // Edit mode - enable editing
+            problemStatement.contentEditable = 'true';
+            editProblemButton.innerHTML = '<i class="bi bi-check"></i> Save';
+            editProblemButton.classList.replace('btn-outline-primary', 'btn-success');
+            problemStatement.focus();
+        }
+    });
+
+    // Load saved problem statement if exists
+    const savedProblemStatement = localStorage.getItem('problemStatement');
+    if (savedProblemStatement) {
+        problemStatement.innerText = savedProblemStatement;
+        // Update initial prompt with saved problem
+        chatHistory[0].parts = [`
+            Pretend you are a interviewer conducting a programming interview. 
+            The user is going to solve the following problem:
+            ${savedProblemStatement}
+            
+            Guide the user through the process of solving the problem.
+            
+            The user will be writing code in a Python editor. I will share the current state 
+            of their code with you in each message. Please reference their code 
+            when giving feedback, suggestions, or asking questions.
+
+            IMPORTANT: You will operate in two phases:
+            1. In the "clarification" phase, respond eagerly to everything the user says.
+            2. In the "coding" phase, only respond to direct questions. 
+            
+            When you think the user is ready to start coding, include the phrase "You can start coding now. I'll only 
+            respond to direct questions from this point on." in your response to signal the phase change.
+
+            DO NOT INCLUDE ANY SPECIAL CHARACTERS LIKE * OR # OR ' IN YOUR RESPONSES. 
+            DO NOT RESPOND WITH MORE THAN TWO SENTENCES.
+        `];
+    }
+
 });
 

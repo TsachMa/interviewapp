@@ -190,7 +190,7 @@ def generate_analysis():
         if transcript:
             # Prompt Gemini for analysis
             analysis_prompt = f"""
-            You are an expert coding interview reviewer. Analyze this interview transcript about the 2Sum problem.
+            You are an expert coding interview reviewer. Analyze this interview transcript.
             Provide a comprehensive but concise analysis of the candidate's performance, including:
             1. Technical proficiency (how well did they handle the problem)
             2. Communication skills (how well did they explain their approach)

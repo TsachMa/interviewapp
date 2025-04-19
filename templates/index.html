@@ -87,11 +87,14 @@
                 </div>
 
                 <div class="card mb-3">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center">
                         <h4>Problem Statement</h4>
+                        <button id="editProblemButton" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-pencil"></i> Edit
+                        </button>
                     </div>
                     <div class="card-body">
-                        <div class="problem-statement">Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.You may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.
+                        <div id="problemStatement" class="problem-statement" contenteditable="false">Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.You may assume that each input would have exactly one solution, and you may not use the same element twice. You can return the answer in any order.
 
                         Examples:
                         Input: nums = [2,7,11,15], target = 9 => Output: [0,1]
@@ -115,9 +118,7 @@
                         <div id="editor-container" class="mb-2 border rounded">
                             <pre><code id="highlighting-content" class="language-python"></code></pre>
                             <textarea id="pythonCode" class="form-control" rows="15" placeholder="Enter Python code here">
-def twoSum(nums, target):
-    # Your solution here
-    pass
+    
                             </textarea>
                         </div>
                         <button id="executeButton" class="btn btn-primary">Execute Python</button>
