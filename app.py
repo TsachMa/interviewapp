@@ -96,7 +96,7 @@ def call_elevenlabs():
     
     try:
         client = ElevenLabs(api_key=os.getenv("ELEVENLABS_API_KEY"))
-        
+        print(os.getenv("ELEVENLABS_API_KEY"))
         # Convert text to speech and save to file
         response = client.text_to_speech.convert(
             voice_id="21m00Tcm4TlvDq8ikWAM",  # Adam pre-made voice
@@ -110,6 +110,8 @@ def call_elevenlabs():
                 use_speaker_boost=True,
             ),
         )
+
+        print(response)
         
         # Generate unique filename
         save_file_path = f"static/audio/{uuid.uuid4()}.mp3"
@@ -125,6 +127,19 @@ def call_elevenlabs():
         return jsonify({"audio_url": "/" + save_file_path})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/delete_audio', methods=['POST'])
+def delete_audio():
+    data = request.json
+    filename = data.get('filename', '')
+    if filename:
+        file_path = os.path.join('static/audio', filename)
+
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            return jsonify({"success": True})
+        else:
+            return jsonify({"success": False, "error": "File not found"})
 
 @app.route('/execute_python', methods=['POST'])
 def execute_python():

@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let pauseTimer = null;
     let autoRestart = true;
 
-    const PAUSE_THRESHOLD = 5000; // 5 seconds of silence
+    const PAUSE_THRESHOLD = 500; // 5 seconds of silence
 
     // Create a new SpeechRecognition instance
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -549,6 +549,32 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 };
                 currentAudio.play();
+
+                // delete the audio file from the server
+                // Delete the audio file after it's played
+                currentAudio.onended = function() {
+                    isSpeaking = false;
+                    stopButton.classList.add('d-none');
+                    
+                    // Extract filename from audio URL
+                    const audioFile = data.audio_url.split('/').pop();
+                    
+                    // Send request to delete the file
+                    fetch('/delete_audio', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ filename: audioFile })
+                    }).catch(error => {
+                        console.error('Error deleting audio file:', error);
+                    });
+                    
+                    // Only restart recording after speech ends if in auto mode
+                    if (autoRestart) {
+                        setTimeout(startRecording, 500);
+                    }
+                };
             }
         } catch (error) {
             isSpeaking = false;
