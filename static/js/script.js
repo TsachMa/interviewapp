@@ -8,15 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Syntax highlighting setup
     const pythonCode = document.getElementById('pythonCode');
     const highlightingContent = document.getElementById('highlighting-content');
-   
-    let isRecording = false;
-    let mediaRecorder = null;
-    let audioChunks = [];
+    
     let chatHistory = [];
-
-    let currentAudio = null;
-    let stopButton = null;
-
 
     // Load chat history from localStorage if available
     const chatHistoryManager = ChatHistoryManager.init({
@@ -31,12 +24,59 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-
-
     
     // Track interview phase
     let interviewPhase = "clarification"; // Start in clarification phase, will change to "coding" later
     let messagesCount = 0; // Track number of exchanges to help determine phase transition
+
+    // Initialize AudioManager
+    const audioManager = AudioManager.init({
+        recordButton: recordButton,
+        transcriptionResult: transcriptionResult,
+        onTranscriptionComplete: function(transcript) {
+            // Handle completed transcription
+            if (transcript) {
+                transcriptionResult.innerHTML += '<p>Sending to Gemini...</p>';
+                
+                // Add user message to displayed chat history
+                chatHistoryManager.addMessage('user', transcript);
+                
+                // Check if we should transition phases based on the response
+                callGemini(transcript).then(response => {
+                    // Check if the response signals a phase change
+                    if (response.includes("You can start coding now. I'll only respond to direct questions from this point on.")) {
+                        interviewPhase = "coding";
+                    }
+                    
+                    // In coding phase, check if the response starts with the question/notquestion indicator
+                    let displayResponse = response;
+                    if (interviewPhase === "coding") {
+                        if (response.startsWith("notquestion")) {
+                            // Only autorestart recording if not a question - don't actually show response
+                            return; // Skip displaying and speaking
+                        }
+                    }
+                    
+                    transcriptionResult.innerHTML += `<div class="mt-3 p-3 bg-light rounded"><h5>Gemini Response:</h5><p>${displayResponse}</p></div>`;
+                    
+                    // Add assistant message to displayed chat history
+                    chatHistoryManager.addMessage('assistant', displayResponse);
+                    
+                    // Speaking will handle restarting recording when done
+                    audioManager.speakWithElevenLabs(displayResponse);
+                    
+                    // Increment message count
+                    messagesCount++;
+                });
+            }
+        },
+        onSpeechEnd: function() {
+            // Called when speech ends
+            if (audioManager.autoRestart) {
+                setTimeout(() => audioManager.startRecording(), 500);
+            }
+        }
+    });
 
     // problem statement
     const problemStatement = document.getElementById('problemStatement');
@@ -50,8 +90,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Function to update chat history with new problem statement
     function updateChatHistoryWithProblem(problemText) {
-        console.log("I am a chatbot");
-
         // Update the initial prompt with new problem
         chatHistory[0] = {
             "role": "user", 
@@ -78,14 +116,6 @@ document.addEventListener('DOMContentLoaded', function() {
             `]
         };
     }
-
-    // After DOMContentLoaded, add this code to create the stop button (but initially hidden)
-    // Add this after the recordButton is defined
-    stopButton = document.createElement('button');
-    stopButton.id = 'stopSpeechButton';
-    stopButton.className = 'btn btn-warning w-100 mb-3 d-none';
-    stopButton.innerHTML = '<i class="bi bi-volume-mute-fill"></i> Stop Speech';
-    recordButton.parentNode.insertBefore(stopButton, recordButton.nextSibling);
     
     // Add a "Saved Interviews" button to the sidebar
     const savedInterviewsButton = document.createElement('a');
@@ -95,99 +125,18 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Find the clear history button and insert the new button after it
     clearHistoryButton.parentNode.insertBefore(savedInterviewsButton, clearHistoryButton.nextSibling);
-    
-    // Add event listener for the stop button
-    stopButton.addEventListener('click', function() {
-        stopCurrentSpeech();
-    });
 
-    // Function to stop current speech
-    function stopCurrentSpeech() {
-        if (currentAudio && !currentAudio.paused) {
-            currentAudio.pause();
-            currentAudio.currentTime = 0;
-            isSpeaking = false;
-            stopButton.classList.add('d-none');
-            
-            // Only restart recording if in auto mode
-            if (autoRestart) {
-                setTimeout(startRecording, 500);
-            }
-        }
-    }
-
-    // Add this after other event listeners in the DOMContentLoaded function
-    document.addEventListener('keydown', function(event) {
-        // Escape key to stop speech
-        if (event.key === 'Escape') {
-            stopCurrentSpeech();
-        }
-    });
-
-    // Updated initial prompt to include awareness of code editor and phased behavior
-    chatHistory.push({
-        "role": "user", 
-        "parts": [`
-            Pretend you are a interviewer conducting a programming interview. 
-            The user is going to solve the following problem:
-            ${problemStatementManager.getCurrentProblem()}
-            
-            Guide the user through the process of solving the problem.
-            
-            The user will be writing code in a Python editor. I will share the current state 
-            of their code with you in each message. Please reference their code 
-            when giving feedback, suggestions, or asking questions.
-
-            IMPORTANT: You will operate in two phases:
-            1. In the "clarification" phase, respond eagerly to everything the user says.
-            2. In the "coding" phase, only respond to direct questions. 
-            
-            When you think the user is ready to start coding, include the phrase "You can start coding now. I'll only 
-            respond to direct questions from this point on." in your response to signal the phase change.
-
-            DO NOT INCLUDE ANY SPECIAL CHARACTERS LIKE * OR # OR ' IN YOUR RESPONSES. 
-            DO NOT RESPOND WITH MORE THAN TWO SENTENCES.
-        `]
-    });
-
-    let pauseTimer = null;
-    let autoRestart = true;
-
-    const PAUSE_THRESHOLD = 500; // 5 seconds of silence
-
-    // Create a new SpeechRecognition instance
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition(); 
-
-    // Set the recognition parameters
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US'; // set the language to English 
-
-    // variable to store the transcription result 
-    let finalTranscript = '';
-
-    // Add a click event listener to the recordButton
-    recordButton.addEventListener('click', function() {
-        if (!isRecording) {
-            autoRestart = true;
-            startRecording();
-        } else {
-            autoRestart = false; // Don't auto-restart on manual stop
-            stopRecording();
-        }
-    });
-
+    // End interview handler
     endInterviewButton.addEventListener('click', function() {
         endInterview();
     });
     
     function endInterview() {
         // Stop any ongoing recording or speech
-        if (isRecording) {
-            stopRecording();
+        if (audioManager.isCurrentlyRecording()) {
+            audioManager.stopRecording();
         }
-        stopCurrentSpeech();
+        audioManager.stopCurrentSpeech();
         
         // Save the current code to localStorage as a backup
         localStorage.setItem('pythonCode', pythonCode.value);
@@ -212,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }).catch(error => {
             console.error('Error saving interview:', error);
             // Fall back to localStorage if database save fails
-        window.location.href = '/analysis';
+            window.location.href = '/analysis';
         });
     }
     
@@ -239,6 +188,32 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }    
     
+    // Updated initial prompt to include awareness of code editor and phased behavior
+    chatHistory.push({
+        "role": "user", 
+        "parts": [`
+            Pretend you are a interviewer conducting a programming interview. 
+            The user is going to solve the following problem:
+            ${problemStatementManager.getCurrentProblem()}
+            
+            Guide the user through the process of solving the problem.
+            
+            The user will be writing code in a Python editor. I will share the current state 
+            of their code with you in each message. Please reference their code 
+            when giving feedback, suggestions, or asking questions.
+
+            IMPORTANT: You will operate in two phases:
+            1. In the "clarification" phase, respond eagerly to everything the user says.
+            2. In the "coding" phase, only respond to direct questions. 
+            
+            When you think the user is ready to start coding, include the phrase "You can start coding now. I'll only 
+            respond to direct questions from this point on." in your response to signal the phase change.
+
+            DO NOT INCLUDE ANY SPECIAL CHARACTERS LIKE * OR # OR ' IN YOUR RESPONSES. 
+            DO NOT RESPOND WITH MORE THAN TWO SENTENCES.
+        `]
+    });
+    
     // Update the pythonCode event listener to save to localStorage
     pythonCode.addEventListener('input', function() {
         updateHighlighting();
@@ -257,189 +232,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Call this function when the page loads
     loadCodeFromStorage();
-    
-
-    async function startRecording() {
-        // First stop any ongoing speech
-        stopCurrentSpeech();
-        
-        transcriptionResult.innerHTML = '<p>Requesting access to your microphone...</p>';
-        finalTranscript = ''; // reset the final transcript
-        try {
-            // request access to the user's microphone 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                audio: true,
-            });
-
-            // create a new MediaRecorder instance
-            mediaRecorder = new MediaRecorder(stream);
-
-            // Set up event handlers for the MediaRecorder instance
-            mediaRecorder.ondataavailable = function(event) {
-                // when data is available, push it to the audioChunks array
-                audioChunks.push(event.data);
-            }
-
-            
-            mediaRecorder.onstop = function() {
-                // when the recording is stopped, create a Blob from the audioChunks
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-
-                // create a URL for the audio blob
-                const audioUrl = URL.createObjectURL(audioBlob);
-
-                // create an audio element to play back the recording 
-                const audio = document.createElement('audio');
-                audio.src = audioUrl
-                audio.controls = true;
-
-                // clear the previoous content and add the audio element 
-                transcriptionResult.innerHTML = '';
-                transcriptionResult.appendChild(audio);
-
-                // stop all tracks to release the microphone
-                stream.getTracks().forEach(track => track.stop());
-            };
-
-            // reset the audioChunks array
-            audioChunks = [];
-            
-            // start recording 
-            mediaRecorder.start();
-
-            // start the speech recognition
-            recognition.start();
-
-            // update the button text and style
-            isRecording = true;
-            recordButton.innerHTML = '<i class="bi bi-mic-fill"></i> Stop Recording';
-            recordButton.classList.replace('btn-primary', 'btn-danger');
-            transcriptionResult.innerHTML = '<p>Recording...</p>';
-
-        } catch (error) {
-            console.error('Error accessing microphone:', error);
-            transcriptionResult.innerHTML = '<p>Error accessing microphone. Please check your browser permissions.</p>';
-        }
-    }
-
-    function stopRecording() {
-        if (mediaRecorder && isRecording) {
-            mediaRecorder.stop();
-            recognition.stop();
-            isRecording = false;
-            recordButton.innerHTML = '<i class="bi bi-mic-fill"></i> Record Audio';
-            recordButton.classList.replace('btn-danger', 'btn-primary');
-            
-            if (finalTranscript) {
-                transcriptionResult.innerHTML += '<p>Sending to Gemini...</p>';
-                
-                // Add user message to displayed chat history
-                chatHistoryManager.addMessage('user', finalTranscript);
-                
-                // Check if we should transition phases based on the response
-                callGemini(finalTranscript).then(response => {
-                    // Check if the response signals a phase change
-                    if (response.includes("You can start coding now. I'll only respond to direct questions from this point on.")) {
-                        interviewPhase = "coding";
-                    }
-                    
-                    // In coding phase, check if the response starts with the question/notquestion indicator
-                    let displayResponse = response;
-                    if (interviewPhase === "coding") {
-                        if (response.startsWith("question")) {
-                            // Remove the indicator before displaying
-                        } else if (response.startsWith("notquestion")) {
-                            // Only autorestart recording if not a question - don't actually show response
-                            if (autoRestart && !isSpeaking) {
-                                setTimeout(startRecording, 500);
-                            }
-                            return; // Skip displaying and speaking
-                        }
-                    }
-                    
-                    transcriptionResult.innerHTML += `<div class="mt-3 p-3 bg-light rounded"><h5>Gemini Response:</h5><p>${displayResponse}</p></div>`;
-                    
-                    // Add assistant message to displayed chat history
-                    addMessageToDisplay('assistant', displayResponse);
-                    
-                    finalTranscript = '';
-                    // Speaking will handle restarting recording when done
-                    speakText(displayResponse);
-                    
-                    // Increment message count
-                    messagesCount++;
-                });
-            } else if (autoRestart && !isSpeaking) {
-                setTimeout(startRecording, 500);
-            }
-        }
-    }
-    
-
-    function speakText(text) {
-        // const utterance = new SpeechSynthesisUtterance(text);
-        // window.speechSynthesis.speak(utterance);
-        speakWithElevenLabs(text);
-    }
-
-    // Add an event listener for when the recognition result is available
-
-
-    // Modify the recognition.onresult function
-    recognition.onresult = function(event) {
-        let interimTranscript = '';
-        
-        // Reset pause timer on new speech
-        clearTimeout(pauseTimer);
-        
-        // Loop through the results
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            
-            if (event.results[i].isFinal) {
-                finalTranscript += transcript;
-                
-                // Set timer to detect pause after speech ends - only trigger on pause in clarification phase
-                // or if it's likely a question in coding phase
-                pauseTimer = setTimeout(() => {
-                    if (finalTranscript && isRecording) {
-                        // In clarification phase, always respond
-                        stopRecording();
-                    }
-                }, PAUSE_THRESHOLD);
-            } else {
-                interimTranscript += transcript;
-            }
-        }
-        
-        // Display results
-        if (isRecording) {
-            transcriptionResult.innerHTML = '<p>Recording...</p>';
-            transcriptionResult.innerHTML += '<p><i>Current: ' + interimTranscript + '</i></p>';
-            transcriptionResult.innerHTML += '<p><b>Transcript so far:</b> ' + finalTranscript + '</p>';
-            
-            // Display current interview phase
-            transcriptionResult.innerHTML += `<p><small>Interview phase: ${interviewPhase}</small></p>`;
-        }
-    };
-    // Handle errors 
-    recognition.onerror = function(event) {
-        console.error('Speech recognition error detected:', event.error);
-        transcriptionResult.innerHTML = '<p>Error occurred while recognizing speech. Please try again.</p>';
-    };
-    recognition.onend = function() {
-        // If recording is still supposed to be happening but recognition stopped
-        if (isRecording && autoRestart) {
-            // Try to restart recognition
-            setTimeout(() => {
-                try {
-                    recognition.start();
-                } catch (e) {
-                    console.error('Could not restart recognition:', e);
-                }
-            }, 500);
-        }
-    };
 
     async function callGemini(text) {
         try {
@@ -468,73 +260,6 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (error) {
             console.error('Error calling Gemini API:', error);
             return 'Error getting response from Gemini';
-        }
-    }
-
-    let isSpeaking = false;
-
-    // Modify the speakWithElevenLabs function
-    async function speakWithElevenLabs(text) {
-        try {
-            isSpeaking = true;
-            const response = await fetch('/elevenlabs', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ text: text })
-            });
-            
-            if (!response.ok) throw new Error('API call failed');
-            
-            const data = await response.json();
-            if (data.audio_url) {
-                // Store the audio element globally
-                currentAudio = new Audio(data.audio_url);
-                
-                // Show the stop button when speech starts
-                stopButton.classList.remove('d-none');
-                
-                currentAudio.onended = function() {
-                    isSpeaking = false;
-                    stopButton.classList.add('d-none');
-                    // Only restart recording after speech ends if in auto mode
-                    if (autoRestart) {
-                        setTimeout(startRecording, 500);
-                    }
-                };
-                currentAudio.play();
-
-                // delete the audio file from the server
-                // Delete the audio file after it's played
-                currentAudio.onended = function() {
-                    isSpeaking = false;
-                    stopButton.classList.add('d-none');
-                    
-                    // Extract filename from audio URL
-                    const audioFile = data.audio_url.split('/').pop();
-                    
-                    // Send request to delete the file
-                    fetch('/delete_audio', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({ filename: audioFile })
-                    }).catch(error => {
-                        console.error('Error deleting audio file:', error);
-                    });
-                    
-                    // Only restart recording after speech ends if in auto mode
-                    if (autoRestart) {
-                        setTimeout(startRecording, 500);
-                    }
-                };
-            }
-        } catch (error) {
-            isSpeaking = false;
-            stopButton.classList.add('d-none');
-            console.error('Eleven Labs API error:', error);
         }
     }
 
@@ -611,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Add these new variables and elements
+    // Add text message functionality
     const textMessageInput = document.getElementById('textMessageInput');
     const sendTextButton = document.getElementById('sendTextButton');
     
@@ -667,7 +392,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 chatHistoryManager.addMessage('assistant', displayResponse);
                 
                 // Speaking will handle restarting recording when done
-                speakText(displayResponse);
+                audioManager.speakWithElevenLabs(displayResponse);
                 
                 // Increment message count
                 messagesCount++;
@@ -675,4 +400,3 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
-
