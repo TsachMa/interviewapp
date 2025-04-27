@@ -13,10 +13,26 @@ document.addEventListener('DOMContentLoaded', function() {
     let mediaRecorder = null;
     let audioChunks = [];
     let chatHistory = [];
-    let displayedChatHistory = []; // Array to store messages for display purposes
 
     let currentAudio = null;
     let stopButton = null;
+
+
+    // Load chat history from localStorage if available
+    const chatHistoryManager = ChatHistoryManager.init({
+        chatHistoryElement: chatHistoryElement,
+        clearHistoryButton: clearHistoryButton,
+        onPhaseChange: function(newPhase) {
+            interviewPhase = newPhase;
+            if (newPhase === 'clarification') {
+                messagesCount = 0;
+            } else {
+                messagesCount = chatHistoryManager.getMessageCount();
+            }
+        }
+    });
+
+
     
     // Track interview phase
     let interviewPhase = "clarification"; // Start in clarification phase, will change to "coding" later
@@ -63,10 +79,6 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    // Load chat history from localStorage if available
-    loadChatHistory();
-
-
     // After DOMContentLoaded, add this code to create the stop button (but initially hidden)
     // Add this after the recordButton is defined
     stopButton = document.createElement('button');
@@ -84,15 +96,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // Find the clear history button and insert the new button after it
     clearHistoryButton.parentNode.insertBefore(savedInterviewsButton, clearHistoryButton.nextSibling);
     
-
-    // Add event listener for the clear history button
-    clearHistoryButton.addEventListener('click', function() {
-        clearChatHistory();
-        // Reset interview phase when clearing history
-        interviewPhase = "clarification";
-        messagesCount = 0;
-    });
-
     // Add event listener for the stop button
     stopButton.addEventListener('click', function() {
         stopCurrentSpeech();
@@ -190,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function() {
         localStorage.setItem('pythonCode', pythonCode.value);
         
         // Get all chat history
-        const chatHistoryData = displayedChatHistory;
+        const chatHistoryData = chatHistoryManager.getAllMessages();
         
         // Save the interview to the database
         saveInterviewToDatabase(
@@ -331,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 transcriptionResult.innerHTML += '<p>Sending to Gemini...</p>';
                 
                 // Add user message to displayed chat history
-                addMessageToDisplay('user', finalTranscript);
+                chatHistoryManager.addMessage('user', finalTranscript);
                 
                 // Check if we should transition phases based on the response
                 callGemini(finalTranscript).then(response => {
@@ -372,98 +375,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Function to add a message to the displayed chat history
-    function addMessageToDisplay(role, text) {
-        // Create a new message object
-        const message = {
-            role: role,
-            text: text,
-            timestamp: new Date().toISOString()
-        };
-        
-        // Add to the displayed chat history array
-        displayedChatHistory.push(message);
-        
-        // Update the chat history display
-        updateChatHistoryDisplay();
-        
-        // Save to localStorage
-        saveChatHistory();
-    }
-    
-    // Function to update the chat history display
-    function updateChatHistoryDisplay() {
-        // Clear the current display
-        chatHistoryElement.innerHTML = '';
-        
-        // Add each message to the display
-        displayedChatHistory.forEach(message => {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `chat-message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`;
-            
-            // Create header with role and timestamp
-            const header = document.createElement('div');
-            header.className = 'message-header small text-muted';
-            
-            // Format the timestamp
-            const timestamp = new Date(message.timestamp);
-            const timeString = timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            
-            header.textContent = `${message.role === 'user' ? 'You' : 'Interviewer'} - ${timeString}`;
-            
-            // Create content
-            const content = document.createElement('div');
-            content.className = 'message-content';
-            content.textContent = message.text;
-            
-            // Add header and content to message
-            messageDiv.appendChild(header);
-            messageDiv.appendChild(content);
-            
-            // Add message to chat history
-            chatHistoryElement.appendChild(messageDiv);
-        });
-        
-        // Scroll to the bottom
-        chatHistoryElement.scrollTop = chatHistoryElement.scrollHeight;
-    }
-    
-    // Function to save chat history to localStorage
-    function saveChatHistory() {
-        localStorage.setItem('interviewChatHistory', JSON.stringify(displayedChatHistory));
-    }
-    
-    // Function to load chat history from localStorage
-    function loadChatHistory() {
-        const savedHistory = localStorage.getItem('interviewChatHistory');
-        if (savedHistory) {
-            displayedChatHistory = JSON.parse(savedHistory);
-            updateChatHistoryDisplay();
-            
-            // Check if we need to restore interview phase by looking for the phase change message
-            const phaseChangeIndex = displayedChatHistory.findIndex(msg => 
-                msg.role === 'assistant' && 
-                msg.text.includes("You can start coding now. I'll only respond to direct questions from this point on.")
-            );
-            
-            if (phaseChangeIndex !== -1) {
-                interviewPhase = "coding";
-                messagesCount = displayedChatHistory.length;
-            }
-        }
-    }
-    
-    // Function to clear chat history
-    function clearChatHistory() {
-        // Clear the chat history array
-        displayedChatHistory = [];
-        
-        // Update the display
-        updateChatHistoryDisplay();
-        
-        // Clear from localStorage
-        localStorage.removeItem('interviewChatHistory');
-    }
 
     function speakText(text) {
         // const utterance = new SpeechSynthesisUtterance(text);
@@ -726,7 +637,7 @@ document.addEventListener('DOMContentLoaded', function() {
             textMessageInput.value = '';
             
             // Add user message to displayed chat history
-            addMessageToDisplay('user', textMessage);
+            chatHistoryManager.addMessage('user', textMessage);
             
             // Show processing state
             transcriptionResult.innerHTML = '<p>Sending to interviewer...</p>';
@@ -753,7 +664,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 transcriptionResult.innerHTML = `<div class="mt-3 p-3 bg-light rounded"><h5>Interviewer Response:</h5><p>${displayResponse}</p></div>`;
                 
                 // Add assistant message to displayed chat history
-                addMessageToDisplay('assistant', displayResponse);
+                chatHistoryManager.addMessage('assistant', displayResponse);
                 
                 // Speaking will handle restarting recording when done
                 speakText(displayResponse);

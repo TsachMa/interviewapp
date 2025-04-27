@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Whisper Streaming Speech Recognition</title>
+</head>
+<body>
+    <h1>Whisper Streaming Speech Recognition</h1>
+    
+    <div>
+        <h2>File Upload (Non-streaming)</h2>
+        <input type="file" id="audioInput" accept="audio/*" />
+        <button id="transcribeBtn">Transcribe File</button>
+        <div id="fileResult"></div>
+    </div>
+    
+    <div>
+        <h2>Streaming Transcription</h2>
+        <button id="startRecordingBtn">Start Recording</button>
+        <button id="stopRecordingBtn" disabled>Stop Recording</button>
+        <div id="streamingResult"></div>
+    </div>
+
+    <script>
+        // File upload transcription
+        document.getElementById('transcribeBtn').addEventListener('click', async () => {
+            const audioFile = document.getElementById('audioInput').files[0];
+            if (!audioFile) {
+                alert('Please select an audio file');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('audio', audioFile);
+
+            document.getElementById('fileResult').textContent = 'Transcribing...';
+            
+            try {
+                const response = await fetch('/api/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                document.getElementById('fileResult').textContent = data.text;
+            } catch (error) {
+                document.getElementById('fileResult').textContent = 'Error: ' + error.message;
+            }
+        });
+
+        // Streaming functionality
+        let mediaRecorder;
+        let audioChunks = [];
+        let sessionId;
+        let recordingInterval;
+
+        // Request microphone access
+        async function setupRecording() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    audioChunks.push(event.data);
+                };
+                
+                mediaRecorder.onstop = async () => {
+                    await endRecordingSession();
+                };
+                
+                return true;
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                document.getElementById('streamingResult').textContent = 'Error accessing microphone. Please allow microphone permissions.';
+                return false;
+            }
+        }
+
+        // Start recording session
+        async function startRecordingSession() {
+            // Initialize session on the server
+            try {
+                const response = await fetch('/api/start-stream', {
+                    method: 'POST'
+                });
+                
+                const data = await response.json();
+                sessionId = data.session_id;
+                
+                // Start recording
+                audioChunks = [];
+                mediaRecorder.start();
+                
+                // Process audio chunks every 3 seconds
+                recordingInterval = setInterval(processAudioChunk, 3000);
+                
+                document.getElementById('startRecordingBtn').disabled = true;
+                document.getElementById('stopRecordingBtn').disabled = false;
+                document.getElementById('streamingResult').textContent = 'Recording... (transcription will appear here)';
+            } catch (error) {
+                console.error('Error starting recording session:', error);
+                document.getElementById('streamingResult').textContent = 'Error starting recording.';
+            }
+        }
+
+        // Process and send audio chunks to server
+        async function processAudioChunk() {
+            if (audioChunks.length === 0) return;
+            
+            // Create a blob from audio chunks
+            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            audioChunks = []; // Clear for next chunk
+            
+            // Send audio chunk to server
+            const formData = new FormData();
+            formData.append('audio', audioBlob);
+            formData.append('session_id', sessionId);
+            
+            try {
+                const response = await fetch('/api/stream-chunk', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                if (data.text) {
+                    document.getElementById('streamingResult').textContent = data.text;
+                }
+            } catch (error) {
+                console.error('Error processing audio chunk:', error);
+            }
+        }
+
+        // End recording session
+        async function endRecordingSession() {
+            if (!sessionId) return;
+            
+            // Stop the interval
+            clearInterval(recordingInterval);
+            
+            // Process any remaining audio
+            await processAudioChunk();
+            
+            // End the session
+            const formData = new FormData();
+            formData.append('session_id', sessionId);
+            
+            try {
+                const response = await fetch('/api/end-stream', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                document.getElementById('streamingResult').textContent = data.text;
+            } catch (error) {
+                console.error('Error ending recording session:', error);
+            }
+            
+            document.getElementById('startRecordingBtn').disabled = false;
+            document.getElementById('stopRecordingBtn').disabled = true;
+        }
+
+        // Event listeners for streaming buttons
+        document.getElementById('startRecordingBtn').addEventListener('click', async () => {
+            const ready = await setupRecording();
+            if (ready) {
+                startRecordingSession();
+            }
+        });
+        
+        document.getElementById('stopRecordingBtn').addEventListener('click', () => {
+            if (mediaRecorder && mediaRecorder.state === 'recording') {
+                mediaRecorder.stop();
+            }
+        });
+    </script>
+</body>
+</html>
