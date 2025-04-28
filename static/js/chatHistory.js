@@ -9,6 +9,7 @@ class ChatHistoryManager {
         
         // Callback functions
         this.onPhaseChange = options.onPhaseChange || function() {};
+        this.onClearHistory = options.onClearHistory || function() {};
         
         // State
         this.displayedChatHistory = [];
@@ -138,6 +139,9 @@ class ChatHistoryManager {
         
         // Reset phase to clarification
         this.onPhaseChange('clarification');
+        
+        // Call the onClearHistory callback to clear the model's chat history
+        this.onClearHistory();
     }
     
     /**

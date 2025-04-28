@@ -10,25 +10,64 @@ document.addEventListener('DOMContentLoaded', function() {
     const highlightingContent = document.getElementById('highlighting-content');
     
     let chatHistory = [];
+    
+    // Track interview phase
+    let interviewPhase = "clarification"; // Start in clarification phase, will change to "coding" later
+    let messagesCount = 0;
+    let chatHistoryManager = null; // Declare but don't initialize yet
+
+    // Define the common prompt template
+    function getInitialPrompt(problemText) {
+        return `
+            Pretend you are a interviewer conducting a programming interview. 
+            The user is going to solve the following problem:
+            ${problemText}
+            
+            Guide the user through the process of solving the problem.
+            
+            The user will be writing code in a Python editor. I will share the current state 
+            of their code with you in each message. Please reference their code 
+            when giving feedback, suggestions, or asking questions.
+
+            IMPORTANT: You will operate in two phases:
+            1. In the "clarification" phase, respond eagerly to everything the user says.
+            2. In the "coding" phase, only respond to direct questions. 
+            
+            Only when the user has demonstrated that they have a clear and accurate understanding of the problem, 
+            progress to the "coding" phase. The user can only demonstrate this if they can provide a high level description of
+            what the problem is asking for and how to solve it. Do not progress to the "coding" phase until this happens.
+            
+            Signal this change by ending your response with the phrase "You can start coding now. I'll only 
+            respond to direct questions from this point on."
+
+            DO NOT INCLUDE ANY SPECIAL CHARACTERS LIKE * OR # OR ' IN YOUR RESPONSES. 
+            DO NOT RESPOND WITH MORE THAN TWO SENTENCES.
+        `;
+    }
 
     // Load chat history from localStorage if available
-    const chatHistoryManager = ChatHistoryManager.init({
+    chatHistoryManager = ChatHistoryManager.init({
         chatHistoryElement: chatHistoryElement,
         clearHistoryButton: clearHistoryButton,
         onPhaseChange: function(newPhase) {
             interviewPhase = newPhase;
             if (newPhase === 'clarification') {
                 messagesCount = 0;
-            } else {
+            } else if (chatHistoryManager) { // Only access if initialized
                 messagesCount = chatHistoryManager.getMessageCount();
             }
+        },
+        onClearHistory: function() {
+            // Clear the model's chat history array
+            chatHistory = [];
+            // Re-add the initial prompt
+            chatHistory.push({
+                "role": "user", 
+                "parts": [getInitialPrompt(problemStatementManager.getCurrentProblem())]
+            });
         }
     });
     
-    // Track interview phase
-    let interviewPhase = "clarification"; // Start in clarification phase, will change to "coding" later
-    let messagesCount = 0; // Track number of exchanges to help determine phase transition
-
     // Initialize AudioManager
     const audioManager = AudioManager.init({
         recordButton: recordButton,
@@ -53,6 +92,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (interviewPhase === "coding") {
                         if (response.startsWith("notquestion")) {
                             // Only autorestart recording if not a question - don't actually show response
+                            audioManager.startRecording(); // Start recording immediately
                             return; // Skip displaying and speaking
                         }
                     }
@@ -92,28 +132,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateChatHistoryWithProblem(problemText) {
         // Update the initial prompt with new problem
         chatHistory[0] = {
-            "role": "user", 
-            "parts": [`
-                Pretend you are a interviewer conducting a programming interview. 
-                The user is going to solve the following problem:
-                ${problemText}
-                
-                Guide the user through the process of solving the problem.
-                
-                The user will be writing code in a Python editor. I will share the current state 
-                of their code with you in each message. Please reference their code 
-                when giving feedback, suggestions, or asking questions.
-
-                IMPORTANT: You will operate in two phases:
-                1. In the "clarification" phase, respond eagerly to everything the user says.
-                2. In the "coding" phase, only respond to direct questions. 
-                
-                When you think the user is ready to start coding, include the phrase "You can start coding now. I'll only 
-                respond to direct questions from this point on." in your response to signal the phase change.
-
-                DO NOT INCLUDE ANY SPECIAL CHARACTERS LIKE * OR # OR ' IN YOUR RESPONSES. 
-                DO NOT RESPOND WITH MORE THAN TWO SENTENCES.
-            `]
+            "role": "user",
+            "parts": [getInitialPrompt(problemText)]
         };
     }
     
@@ -188,30 +208,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }    
     
-    // Updated initial prompt to include awareness of code editor and phased behavior
+    // Initialize chat history with initial prompt
     chatHistory.push({
-        "role": "user", 
-        "parts": [`
-            Pretend you are a interviewer conducting a programming interview. 
-            The user is going to solve the following problem:
-            ${problemStatementManager.getCurrentProblem()}
-            
-            Guide the user through the process of solving the problem.
-            
-            The user will be writing code in a Python editor. I will share the current state 
-            of their code with you in each message. Please reference their code 
-            when giving feedback, suggestions, or asking questions.
-
-            IMPORTANT: You will operate in two phases:
-            1. In the "clarification" phase, respond eagerly to everything the user says.
-            2. In the "coding" phase, only respond to direct questions. 
-            
-            When you think the user is ready to start coding, include the phrase "You can start coding now. I'll only 
-            respond to direct questions from this point on." in your response to signal the phase change.
-
-            DO NOT INCLUDE ANY SPECIAL CHARACTERS LIKE * OR # OR ' IN YOUR RESPONSES. 
-            DO NOT RESPOND WITH MORE THAN TWO SENTENCES.
-        `]
+        "role": "user",
+        "parts": [getInitialPrompt(problemStatementManager.getCurrentProblem())]
     });
     
     // Update the pythonCode event listener to save to localStorage
