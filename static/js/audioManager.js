@@ -143,7 +143,7 @@ class AudioManager {
     _handleRecognitionError(event) {
         console.error('Speech recognition error detected:', event.error);
         if (this.transcriptionResult) {
-            this.transcriptionResult.innerHTML = '<p>Error occurred while recognizing speech. Please try again.</p>';
+            this.transcriptionResult.innerHTML = '<p>Recording paused. Speak to continue.</p>';
         }
     }
     
